@@ -30,13 +30,13 @@ class ConfigurationManager(configFile: String) {
         )
       }.getOrElse(UserUuidsToFind(DefaultUserUuid, DefaultUserUuid))
 
-      val meetingAssumptionConfig = Try(dataProcessorConfig.getConfig(MeetingPrecisionConfigName)).map { meetingAssumptionConfig =>
+      val meetingPrecisionConfig = Try(dataProcessorConfig.getConfig(MeetingPrecisionConfigName)).map { meetingPrecisionConfig =>
         MeetingPrecisionConfig(
-          Try(meetingAssumptionConfig.getDouble(MaxLengthProperty)).getOrElse(DefaultMaxLength),
-          Try(meetingAssumptionConfig.getDuration(MaxTimeProperty)).getOrElse(DefaultMaxTime))
+          Try(meetingPrecisionConfig.getDouble(MaxLengthProperty)).getOrElse(DefaultMaxLength),
+          Try(meetingPrecisionConfig.getDuration(MaxTimeProperty)).getOrElse(DefaultMaxTime))
       }.getOrElse(MeetingPrecisionConfig(DefaultMaxLength, DefaultMaxTime))
 
-      DataProcessorConfig(userUuidsToFind, meetingAssumptionConfig)
+      DataProcessorConfig(userUuidsToFind, meetingPrecisionConfig)
     }
   }.getOrElse(DefaultDataProcessorConfig)
 }

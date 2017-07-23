@@ -14,15 +14,17 @@ object DataProcessor {
   private val EmptyFloor: Floor = Map.empty
   private val EmptyMeetingPoints: MeetingPoints = List.empty
 
-  def processData(lines: Iterator[String])(dataProcessorConfig: DataProcessorConfig, parser: RawUserData => Try[PersonLocation]): MeetingPoints = {
+  def processData(unparsedData: Iterator[String])
+                 (dataProcessorConfig: DataProcessorConfig,
+                  parser: RawUserData => Try[PersonLocation]): (Building, MeetingPoints) = {
     val userUuids = Set(dataProcessorConfig.userUuidsToFind.userFirstUuid, dataProcessorConfig.userUuidsToFind.userSecondUuid)
 
     val startProcessingMs = System.currentTimeMillis()
 
-    val (_, result) = lines.collect {
+    val result = unparsedData.collect {
       case rawPersonsLocationData if userUuids.exists(rawPersonsLocationData.endsWith) => parser(rawPersonsLocationData)
-    }.foldLeft((EmptyBuilding, EmptyMeetingPoints)) { case ((building, meetingPoints), currentPersonT) =>
-      currentPersonT.map { currentPerson =>
+    }.foldLeft((EmptyBuilding, EmptyMeetingPoints)) { case ((building, meetingPoints), currentPersonTry) =>
+      currentPersonTry.map { currentPerson =>
         process(userUuids, building, meetingPoints, currentPerson, dataProcessorConfig)
       }.getOrElse((building -> meetingPoints))
     }
@@ -49,12 +51,12 @@ object DataProcessor {
   private def processElementsOnTheFloor(processingData: ProcessingData,
                                         meetingPoints: MeetingPoints,
                                         userUuids: Set[UserUuid],
-                                        meetingAssumptionConfig: MeetingPrecisionConfig): (Building, MeetingPoints) = {
+                                        meetingPrecisionConfig: MeetingPrecisionConfig): (Building, MeetingPoints) = {
     val meetingInfo = userUuids.collectFirst {
       case anotherUserId if (anotherUserId != processingData.currentPerson.uuid) =>
         processingData.floor.get(anotherUserId).map { anotherPersonsLocations =>
           anotherPersonsLocations.collect {
-            case another if isCloseEnough(another, processingData.currentPerson, meetingAssumptionConfig) =>
+            case another if isCloseEnough(another, processingData.currentPerson, meetingPrecisionConfig) =>
               processingData.currentPerson -> another
           }
         }
@@ -78,8 +80,8 @@ object DataProcessor {
     building + (currentPerson.floor -> Map(currentPerson.uuid -> List(currentPerson)))
   }
 
-  private def isCloseEnough(personFirst: PersonLocation, personSecond: PersonLocation, meetingAssumptionConfig: MeetingPrecisionConfig): Boolean = {
-    math.sqrt(math.pow(personFirst.x - personSecond.x, 2) + math.pow(personFirst.y - personSecond.y, 2)) <= meetingAssumptionConfig.maxLength &&
-      Duration.between(personFirst.time, personSecond.time).getSeconds <= meetingAssumptionConfig.maxTime.getSeconds
+  private def isCloseEnough(personFirst: PersonLocation, personSecond: PersonLocation, meetingPrecisionConfig: MeetingPrecisionConfig): Boolean = {
+    math.sqrt(math.pow(personFirst.x - personSecond.x, 2) + math.pow(personFirst.y - personSecond.y, 2)) <= meetingPrecisionConfig.maxLength &&
+      Duration.between(personFirst.time, personSecond.time).getSeconds <= meetingPrecisionConfig.maxTime.getSeconds
   }
 }

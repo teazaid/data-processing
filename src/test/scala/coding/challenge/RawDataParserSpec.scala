@@ -21,7 +21,6 @@ class RawDataParserSpec extends FunSuite {
   }
 
   test("parse bad formatted data") {
-    "2014-07-19T17:46:26.718Z,109.10516,75.48685374678671,2,5e7b40e1"
     assert(RawDataParser.parseRow("2014-07-19T17:46:26.71,109.10516,75.48685374678671,2,5e7b40e1").isFailure)
     assert(RawDataParser.parseRow("2014-07-19T17:46:26.718Z,109.A10516,75.48685374678671,2,5e7b40e1").isFailure)
     assert(RawDataParser.parseRow("2014-07-19T17:46:26.718Z,109.10516,75.48SA685374678671,2,5e7b40e1").isFailure)
