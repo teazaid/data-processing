@@ -10,7 +10,6 @@ import scala.util.Try
   */
 object FileReader {
   def readFile[T](fileProcessor: Iterator[String] => T)(fileReaderConfig: FileReaderConfig): Try[T] = {
-    val start = System.currentTimeMillis()
     val result = Try(Source.fromFile(fileReaderConfig.filePath)).map {data =>
       val lines = data.getLines()
       val processingResult = fileProcessor(lines)
@@ -19,7 +18,6 @@ object FileReader {
       processingResult
     }
 
-    println(s"Files read and processed in: ${System.currentTimeMillis() - start} ms")
     result
   }
 }

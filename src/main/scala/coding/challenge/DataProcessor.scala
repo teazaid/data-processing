@@ -19,8 +19,6 @@ object DataProcessor {
                   parser: RawUserData => Try[PersonLocation]): (Building, MeetingPoints) = {
     val userUuids = Set(dataProcessorConfig.userUuidsToFind.userFirstUuid, dataProcessorConfig.userUuidsToFind.userSecondUuid)
 
-    val startProcessingMs = System.currentTimeMillis()
-
     val result = unparsedData.collect {
       case rawPersonsLocationData if userUuids.exists(rawPersonsLocationData.endsWith) => parser(rawPersonsLocationData)
     }.foldLeft((EmptyBuilding, EmptyMeetingPoints)) { case ((building, meetingPoints), currentPersonTry) =>
@@ -28,8 +26,6 @@ object DataProcessor {
         process(userUuids, building, meetingPoints, currentPerson, dataProcessorConfig)
       }.getOrElse((building -> meetingPoints))
     }
-
-    println(s"Processing time: ${System.currentTimeMillis() - startProcessingMs} ms")
     result
   }
 
@@ -39,7 +35,7 @@ object DataProcessor {
                       currentPerson: PersonLocation,
                       dataProcessorConfig: DataProcessorConfig): (Building, MeetingPoints) = {
     building.get(currentPerson.floor).map { currentFloor =>
-      processElementsOnTheFloor(ProcessingData(building, currentPerson, currentFloor),
+      findAnotherPersonOnTheFloor(ProcessingData(building, currentPerson, currentFloor),
         meetingPoints,
         userUuids,
         dataProcessorConfig.meetingPrecisionConfig)
@@ -48,7 +44,7 @@ object DataProcessor {
     }
   }
 
-  private def processElementsOnTheFloor(processingData: ProcessingData,
+  private def findAnotherPersonOnTheFloor(processingData: ProcessingData,
                                         meetingPoints: MeetingPoints,
                                         userUuids: Set[UserUuid],
                                         meetingPrecisionConfig: MeetingPrecisionConfig): (Building, MeetingPoints) = {
