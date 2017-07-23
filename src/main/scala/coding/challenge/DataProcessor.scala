@@ -82,6 +82,6 @@ object DataProcessor {
 
   private def isCloseEnough(personFirst: PersonLocation, personSecond: PersonLocation, meetingPrecisionConfig: MeetingPrecisionConfig): Boolean = {
     math.sqrt(math.pow(personFirst.x - personSecond.x, 2) + math.pow(personFirst.y - personSecond.y, 2)) <= meetingPrecisionConfig.maxLength &&
-      Duration.between(personFirst.time, personSecond.time).getSeconds <= meetingPrecisionConfig.maxTime.getSeconds
+      math.abs(Duration.between(personFirst.time, personSecond.time).getSeconds) <= meetingPrecisionConfig.maxTime.getSeconds
   }
 }

@@ -9,40 +9,97 @@ import org.scalatest.FunSuite
   * Created by Alexander on 23.07.2017.
   */
 class DataProcessorSpec extends FunSuite {
+  private val dataProcessorConfig = DataProcessorConfig(UserUuidsToFind("600dfbe2", "54ead428"),
+    MeetingPrecisionConfig(1.0, Duration.ofSeconds(30)))
+
+  implicit class PrepareToBeParsed(rawData: String) {
+    def makeParsable(): Array[String] = rawData.stripMargin.replaceAll("\r", "").split("\n")
+  }
 
   private val UnParsedData =
     """timestamp,x,y,floor,uid
       |2014-07-19T16:00:06.071Z,103.79211,71.50419417988532,1,600dfbe2
-      |2014-07-19T16:00:06.074Z,110.33613,100.6828393188978,1,5e7b40e1
-      |2014-07-19T16:00:06.076Z,110.066315,86.48873585227504,1,285d22e4
-      |2014-07-19T16:00:06.076Z,103.78499,71.45633073293511,1,74d917a1
-      |2014-07-19T16:00:06.076Z,109.09495,92.82448711015493,1,3c3649fb
-      |2014-07-19T16:00:06.563Z,105.98095,67.84456254789256,1,d6f0300c
-      |2014-07-19T16:00:05.821Z,103.461044,71.42452175621781,2,78b85537
-      |2014-07-19T16:00:05.822Z,103.7674,71.47382163072028,2,27cb9c6f
-      |2014-07-19T16:00:06.076Z,107.476204,73.34450467590266,2,042e36bd
-      |2014-07-19T16:00:06.078Z,105.27734,87.58118231201172,2,1c01962e
-      |2014-07-19T16:00:06.079Z,103.785805,71.4429286356105,2,26fc890b
-      |2014-07-19T16:00:06.080Z,103.720085,71.37973540637665,2,d05c03a0
-      |2014-07-19T16:00:06.081Z,107.343185,88.27521371968929,2,2f15d692
-      |2014-07-19T16:00:06.081Z,100.84964,67.38097318411246,2,b53b76f9
       |2014-07-19T16:00:06.071Z,103.79211,71.50419417988532,1,54ead428
-      |2014-07-19T16:00:06.081Z,110.1006,66.26799122703169,2,f8c4ee12
-      |2014-07-19T16:00:06.081Z,105.854195,87.77078816181071,2,ed3c7f8f
-      |2014-07-19T16:00:06.082Z,96.142845,61.99788642852218,2,655f7545
-      |2014-07-19T16:00:06.564Z,103.78293,71.48327490598336,2,fd3a0792
-      |2014-07-19T16:00:06.564Z,103.927475,71.49321360543463,2,b43212e2
+      |2014-07-19T16:00:06.076Z,103.78499,71.45633073293511,1,74d917a1
+      |2014-07-19T16:00:06.080Z,103.720085,71.37973540637665,2,d05c03a0
       |2014-07-19T16:00:05.821Z,104.722595,90.43501545526087,3,22533c61
-      |2014-07-19T16:00:05.822Z,109.6942,66.2269939310113,3,e6b24f52
-      |2014-07-19T16:00:06.074Z,109.71278,97.24288490419183,3,54ead428
-    """.stripMargin.replaceAll("\r", "").split("\n")
+    """
 
-  test("testProcessData") {
-    val dataProcessorConfig = DataProcessorConfig(UserUuidsToFind("600dfbe2", "54ead428"), MeetingPrecisionConfig(1.0, Duration.ofSeconds(30)))
-    val (parsedBuildingDataForSpecificUsers, meetingPoints) = DataProcessor.processData(UnParsedData.iterator)(dataProcessorConfig, RawDataParser.parseRow)
+  test("testProcessData should find meeting points pairs correctly") {
+
+    val (parsedBuildingDataForSpecificUsers, meetingPoints) = DataProcessor.processData(
+      UnParsedData.makeParsable().iterator)(dataProcessorConfig, RawDataParser.parseRow)
     assert(meetingPoints.size == 1)
-    assert(parsedBuildingDataForSpecificUsers.size == 2)
+    assert(parsedBuildingDataForSpecificUsers.size == 1)
 
+    val user600dfbe2 = RawDataParser.parseRow("2014-07-19T16:00:06.071Z,103.79211,71.50419417988532,1,600dfbe2")
+    val user54ead428 = RawDataParser.parseRow("2014-07-19T16:00:06.071Z,103.79211,71.50419417988532,1,54ead428")
+
+    val expectedResult = Map(1 -> Map("600dfbe2" -> List(user600dfbe2.get), "54ead428" -> List(user54ead428.get)))
+    assert(parsedBuildingDataForSpecificUsers == expectedResult)
   }
 
+  test("testProcessData shouldn't populate parsed building") {
+    val unparsedData =
+      """timestamp,x,y,floor,uid
+        |2014-07-19T16:00:06.076Z,103.78499,71.45633073293511,1,74d917a1
+        |2014-07-19T16:00:06.080Z,103.720085,71.37973540637665,2,d05c03a0
+        |2014-07-19T16:00:05.821Z,104.722595,90.43501545526087,3,22533c61
+      """.stripMargin
+
+    val (parsedBuildingDataForSpecificUsers, meetingPoints) = DataProcessor.processData(
+      unparsedData.makeParsable().iterator)(dataProcessorConfig, RawDataParser.parseRow)
+    assert(meetingPoints.size == 0)
+    assert(parsedBuildingDataForSpecificUsers.size == 0)
+  }
+
+  test("testProcessData persons cant meet once they are on the different floors") {
+    val unparsedData =
+      """timestamp,x,y,floor,uid
+        |2014-07-19T16:00:06.071Z,103.79211,71.50419417988532,1,600dfbe2
+        |2014-07-19T16:00:06.071Z,103.79211,71.50419417988532,2,54ead428
+      """.stripMargin
+
+    val (parsedBuildingDataForSpecificUsers, meetingPoints) = DataProcessor.processData(
+      unparsedData.makeParsable().iterator)(dataProcessorConfig, RawDataParser.parseRow)
+    assert(meetingPoints.size == 0)
+    assert(parsedBuildingDataForSpecificUsers.size == 2)
+  }
+
+  test("testProcessData persons cant meet if distance it too far") {
+    val unparsedData =
+      """timestamp,x,y,floor,uid
+        |2014-07-19T16:00:06.071Z,103.79211,72.60419417988532,1,600dfbe2
+        |2014-07-19T16:00:06.071Z,103.79211,71.50419417988532,1,54ead428
+      """.stripMargin
+
+    runFailedCase(unparsedData)
+  }
+
+  test("testProcessData doesnt process persons that were't parsed") {
+    val unparsedData =
+      """timestamp,x,y,floor,uid
+        |2014-07-1916:00:06.071Z,103.79211,71.50419417988532,1,600dfbe2
+        |2014-07-19T16:00:06.071Z,103.79211,71.50419417988532,2,54ead428
+      """.stripMargin
+
+    runFailedCase(unparsedData)
+  }
+
+  test("testProcessData persons cant meet if time difference in big") {
+    val unparsedData =
+      """timestamp,x,y,floor,uid
+        |2014-07-19T16:01:06.071Z,103.79211,71.60419417988532,1,600dfbe2
+        |2014-07-19T16:00:06.071Z,103.79211,71.50419417988532,1,54ead428
+      """.stripMargin
+
+    runFailedCase(unparsedData)
+  }
+
+  private def runFailedCase(unparsedData: String): Unit = {
+    val (parsedBuildingDataForSpecificUsers, meetingPoints) = DataProcessor.processData(
+      unparsedData.makeParsable().iterator)(dataProcessorConfig, RawDataParser.parseRow)
+    assert(meetingPoints.size == 0)
+    assert(parsedBuildingDataForSpecificUsers.size == 1)
+  }
 }

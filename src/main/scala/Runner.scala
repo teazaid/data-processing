@@ -13,7 +13,7 @@ object Runner {
 
     resultTry.map { case (_, meetingPoints) =>
       meetingPoints.map { case (personFirst, personSecond) =>
-        println(s"${personFirst} met ${personSecond}")
+        println(s"${personFirst.uuid} met ${personSecond.uuid}")
       }
     }
   }
